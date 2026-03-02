@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockSim — Real-Time Trading Classroom</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 70vh;
+      text-align: center;
+      gap: 16px;
+    }
+
+    .hero-eyebrow {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.15em;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      font-size: clamp(40px, 7vw, 72px);
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      max-width: 700px;
+    }
+
+    .hero h1 .highlight { color: var(--accent2); }
+
+    .hero p {
+      font-size: 17px;
+      color: var(--text-muted);
+      max-width: 480px;
+      margin-top: 4px;
+    }
+
+    .cta-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 48px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      text-align: left;
+    }
+
+    .feature-icon {
+      font-size: 28px;
+      margin-bottom: 12px;
+    }
+
+    .feature-card h3 {
+      font-size: 16px;
+      margin-bottom: 6px;
+    }
+
+    .feature-card p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    @media (max-width: 768px) {
+      .features { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header class="header">
+      <div class="logo">Stock<span>Sim</span></div>
+      <div class="badge">Classroom Edition</div>
+    </header>
+
+    <div class="hero">
+      <div class="hero-eyebrow">Real-time market simulation</div>
+      <h1>Learn markets by <span class="highlight">playing them</span></h1>
+      <p>Join a live classroom session, trade real historical stock data, and compete on the leaderboard.</p>
+
+      <div class="cta-group">
+        <a href="teacher.html" class="btn btn-primary btn-lg">🎓 Create a Session</a>
+        <a href="student.html" class="btn btn-ghost btn-lg">👤 Join a Session</a>
+      </div>
+    </div>
+
+    <div class="features">
+      <div class="feature-card">
+        <div class="feature-icon">📈</div>
+        <h3>Real Stock Data</h3>
+        <p>Historical prices from real companies — students see the price action but never the ticker.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Time-Compressed Trading</h3>
+        <p>Every 10 seconds represents one month. Watch years of market history unfold in minutes.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🏆</div>
+        <h3>Live Leaderboard</h3>
+        <p>Real-time rankings update as students trade, creating engagement and healthy competition.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

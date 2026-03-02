@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "sessions": {
+      "$sessionId": {
+        ".read": true,
+        ".write": true,
+        "players": {
+          "$playerId": {
+            ".read": true,
+            ".write": true
+          }
+        }
+      }
+    }
+  }
+}

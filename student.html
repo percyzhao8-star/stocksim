@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockSim — Student</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* JOIN PAGE */
+    .join-wrap {
+      max-width: 440px;
+      margin: 80px auto;
+    }
+
+    .join-wrap h2 {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .join-wrap p {
+      color: var(--text-muted);
+      margin-bottom: 28px;
+    }
+
+    /* LOBBY WAIT */
+    .waiting-anim {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      text-align: center;
+      gap: 16px;
+    }
+
+    .spinner {
+      width: 48px; height: 48px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* GAME PAGE */
+    .student-game-grid {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 20px;
+    }
+
+    .game-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 20px;
+    }
+
+    .money-display {
+      font-family: 'DM Mono', monospace;
+      font-size: 28px;
+      font-weight: 400;
+    }
+
+    .shares-info {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* TRADE PANEL */
+    .trade-panel { display: flex; flex-direction: column; gap: 12px; }
+
+    .price-big {
+      font-family: 'DM Mono', monospace;
+      font-size: 38px;
+      font-weight: 400;
+    }
+
+    .trade-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+    }
+
+    .trade-card h4 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .qty-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 10px 0;
+    }
+
+    .qty-btn {
+      width: 32px; height: 32px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.1s;
+    }
+
+    .qty-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    .qty-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 16px;
+      text-align: center;
+      outline: none;
+    }
+
+    .qty-input:focus { border-color: var(--accent); }
+
+    .trade-total {
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .chart-container { height: 240px; position: relative; }
+
+    .lb-wrap { display: flex; flex-direction: column; gap: 4px; }
+
+    /* END PAGE */
+    .end-center {
+      text-align: center;
+      padding: 48px 20px;
+    }
+
+    .final-rank {
+      font-family: 'Clash Display', sans-serif;
+      font-size: 64px;
+    }
+
+    /* Preview chart in lobby */
+    .preview-chart-wrap {
+      height: 180px;
+      position: relative;
+      margin: 16px 0;
+    }
+
+    .hidden-label {
+      background: rgba(108,99,255,0.12);
+      border: 1px dashed var(--accent);
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 13px;
+      color: var(--accent);
+      text-align: center;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header class="header">
+      <a href="index.html" class="logo">Stock<span>Sim</span></a>
+      <div class="badge" id="headerBadge">Student</div>
+    </header>
+
+    <!-- PAGE 1: JOIN -->
+    <div id="pageJoin" class="page active">
+      <div class="join-wrap">
+        <h2>Join a Session</h2>
+        <p>Enter the session code given by your teacher to get started.</p>
+
+        <div class="card">
+          <div class="input-group">
+            <label>Session Code</label>
+            <input type="text" id="sessionCode" placeholder="e.g. XK4T9A" maxlength="6"
+              style="text-transform:uppercase;font-family:'DM Mono',monospace;font-size:22px;letter-spacing:0.1em;" />
+          </div>
+          <div class="input-group">
+            <label>Your Name</label>
+            <input type="text" id="studentName" placeholder="Enter your name" />
+          </div>
+          <button class="btn btn-primary btn-full btn-lg" onclick="joinSession()">Join Session →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 2: LOBBY WAIT -->
+    <div id="pageLobby" class="page">
+      <div class="card" style="max-width:600px;margin:0 auto;">
+        <div class="waiting-anim">
+          <div class="spinner"></div>
+          <h3>Waiting for teacher to start...</h3>
+          <p style="color:var(--text-muted);" id="lobbyMsg">Get ready to trade!</p>
+        </div>
+
+        <div id="previewSection" style="display:none;">
+          <hr class="divider" />
+          <p class="section-label">Study the Chart — What stock could this be?</p>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+            The ticker is hidden. Analyze the price action to build your strategy.
+          </p>
+          <div class="preview-chart-wrap">
+            <canvas id="lobbyStudentChart"></canvas>
+          </div>
+          <div class="hidden-label">🔒 Ticker hidden — revealed at the end</div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;font-family:'DM Mono',monospace;color:var(--text-muted);">
+            <span id="previewDateStart">—</span>
+            <span id="previewDateEnd">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 3: GAME -->
+    <div id="pageGame" class="page">
+      <div class="game-header">
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Current Date</div>
+          <div style="font-family:'DM Mono',monospace;font-size:18px;" id="studentMonth">—</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Portfolio Value</div>
+          <div class="money-display" id="totalPortfolio">$—</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="shares-info" id="sharesInfo">0 shares held</div>
+          <div class="shares-info" style="color:var(--text);" id="cashInfo">Cash: $—</div>
+        </div>
+      </div>
+
+      <div class="student-game-grid">
+        <!-- Chart + price -->
+        <div>
+          <div class="card" style="margin-bottom:16px;">
+            <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:12px;">
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Price</div>
+                <div class="price-big" id="studentPrice">$—</div>
+              </div>
+              <div class="pill" id="changeChip" style="font-size:13px;"></div>
+            </div>
+            <div class="chart-container">
+              <canvas id="studentChart"></canvas>
+            </div>
+          </div>
+
+          <!-- TRADE PANEL: BUY -->
+          <div class="trade-card">
+            <h4>💰 Buy Shares</h4>
+            <div class="qty-controls">
+              <button class="qty-btn" onclick="adjustQty('buy', -1)">−</button>
+              <input class="qty-input" type="number" id="buyQty" value="1" min="1" />
+              <button class="qty-btn" onclick="adjustQty('buy', 1)">+</button>
+            </div>
+            <div class="trade-total" id="buyCost">Total: $—</div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-success" style="flex:1;" onclick="trade('buy')">Buy</button>
+              <button class="btn btn-ghost btn-sm" onclick="buyAll()">Max</button>
+            </div>
+          </div>
+
+          <!-- TRADE PANEL: SELL -->
+          <div class="trade-card" style="margin-top:12px;">
+            <h4>📤 Sell Shares</h4>
+            <div class="qty-controls">
+              <button class="qty-btn" onclick="adjustQty('sell', -1)">−</button>
+              <input class="qty-input" type="number" id="sellQty" value="1" min="1" />
+              <button class="qty-btn" onclick="adjustQty('sell', 1)">+</button>
+            </div>
+            <div class="trade-total" id="sellValue">Value: $—</div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-danger" style="flex:1;" onclick="trade('sell')">Sell</button>
+              <button class="btn btn-ghost btn-sm" onclick="sellAll()">All</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="card">
+          <p class="section-label">Leaderboard</p>
+          <div class="lb-wrap" id="leaderboard"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 4: ENDED -->
+    <div id="pageEnded" class="page">
+      <div class="end-center">
+        <div class="final-rank" id="finalEmoji">🎉</div>
+        <h2 style="font-size:32px;margin:12px 0 6px;" id="finalMessage">Session Ended</h2>
+        <p style="color:var(--text-muted);margin-bottom:24px;" id="finalReveal">The stock was: —</p>
+
+        <div class="card" style="max-width:480px;margin:0 auto 24px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+            <span style="color:var(--text-muted);">Final Portfolio</span>
+            <span style="font-family:'DM Mono',monospace;font-weight:500;" id="finalPortfolio">$—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+            <span style="color:var(--text-muted);">Starting Money</span>
+            <span style="font-family:'DM Mono',monospace;" id="finalStart">$—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding-top:12px;border-top:1px solid var(--border);">
+            <span>Total Return</span>
+            <span style="font-family:'DM Mono',monospace;font-weight:600;" id="finalReturn">—</span>
+          </div>
+        </div>
+
+        <div class="card" style="max-width:480px;margin:0 auto 24px;">
+          <p class="section-label">Final Leaderboard</p>
+          <div id="finalLeaderboard"></div>
+        </div>
+
+        <a href="student.html" class="btn btn-ghost">Play Again</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toasts"></div>
+
+  <script src="js/firebase-config.js"></script>
+  <script src="js/stockData.js"></script>
+  <script>
+    // ========================
+    // STATE
+    // ========================
+    let sessionId = null;
+    let playerId = null;
+    let playerName = null;
+    let cash = 0;
+    let shares = 0;
+    let startMoney = 0;
+    let currentPrice = 0;
+    let sessionRef = null;
+    let studentChart = null;
+    let lobbyChart = null;
+    let priceHistory = [];
+    let labelHistory = [];
+    let sessionSnapshot = null;
+
+    // ========================
+    // JOIN
+    // ========================
+    async function joinSession() {
+      const code = document.getElementById('sessionCode').value.trim().toUpperCase();
+      const name = document.getElementById('studentName').value.trim();
+
+      if (!code || code.length !== 6) { toast('Enter a valid 6-character session code', 'error'); return; }
+      if (!name) { toast('Enter your name', 'error'); return; }
+
+      const snap = await db.ref(`sessions/${code}`).once('value');
+      if (!snap.exists()) { toast('Session not found. Check the code.', 'error'); return; }
+
+      const session = snap.val();
+      if (session.status === 'ended') { toast('This session has already ended.', 'error'); return; }
+
+      sessionId = code;
+      playerName = name;
+      playerId = name.replace(/\s+/g, '_') + '_' + Date.now();
+      startMoney = session.startMoney;
+      cash = startMoney;
+      sessionSnapshot = session;
+
+      await db.ref(`sessions/${code}/players/${playerId}`).set({
+        name,
+        money: cash,
+        shares: 0,
+        cash
+      });
+
+      document.getElementById('headerBadge').textContent = name;
+      showPage('pageLobby');
+      listenToSession();
+    }
+
+    function listenToSession() {
+      db.ref(`sessions/${sessionId}`).on('value', snap => {
+        const session = snap.val();
+        if (!session) return;
+        sessionSnapshot = session;
+
+        if (session.status === 'lobby') {
+          // Show preview chart
+          if (session.prices && session.prices.length > 0) {
+            renderLobbyChart(session);
+          }
+        }
+
+        if (session.status === 'playing') {
+          if (document.getElementById('pageGame').style.display === 'none' ||
+              !document.getElementById('pageGame').classList.contains('active')) {
+            initGamePage(session);
+          }
+          updateGameState(session);
+        }
+
+        if (session.status === 'ended') {
+          showEndPage(session);
+        }
+      });
+
+      // Listen for leaderboard
+      db.ref(`sessions/${sessionId}/players`).on('value', snap => {
+        const players = snap.val() || {};
+        updateLeaderboard(players);
+      });
+    }
+
+    function renderLobbyChart(session) {
+      document.getElementById('previewSection').style.display = 'block';
+      const labels = session.labels || [];
+      const prices = session.prices || [];
+
+      document.getElementById('previewDateStart').textContent = labels[0] || '';
+      document.getElementById('previewDateEnd').textContent = labels[labels.length - 1] || '';
+
+      if (lobbyChart) lobbyChart.destroy();
+      const ctx = document.getElementById('lobbyStudentChart').getContext('2d');
+      lobbyChart = new Chart(ctx, buildChartConfig(labels, prices, false));
+    }
+
+    function initGamePage(session) {
+      showPage('pageGame');
+      priceHistory = [];
+      labelHistory = [];
+
+      const ctx = document.getElementById('studentChart').getContext('2d');
+      studentChart = new Chart(ctx, buildChartConfig([], [], true));
+
+      updateTotals();
+      updateTradePanelTotals();
+    }
+
+    function updateGameState(session) {
+      const idx = session.currentMonth || 0;
+      const price = session.currentPrice || 0;
+      currentPrice = price;
+
+      const labels = session.labels || [];
+      const prices = session.prices || [];
+
+      // Build price history up to current month
+      priceHistory = prices.slice(0, idx + 1);
+      labelHistory = labels.slice(0, idx + 1);
+
+      studentChart.data.labels = labelHistory;
+      studentChart.data.datasets[0].data = priceHistory;
+      studentChart.update('none');
+
+      document.getElementById('studentPrice').textContent = `$${price.toFixed(2)}`;
+      document.getElementById('studentMonth').textContent = labels[idx] || '';
+
+      if (idx > 0) {
+        const prev = prices[idx - 1];
+        const change = ((price - prev) / prev * 100).toFixed(2);
+        const chip = document.getElementById('changeChip');
+        chip.textContent = `${change >= 0 ? '▲' : '▼'} ${Math.abs(change)}%`;
+        chip.className = 'pill ' + (change >= 0 ? 'pill-active' : 'pill-ended');
+      }
+
+      updateTotals();
+      updateTradePanelTotals();
+    }
+
+    // ========================
+    // TRADING
+    // ========================
+    function adjustQty(type, delta) {
+      const input = document.getElementById(type === 'buy' ? 'buyQty' : 'sellQty');
+      input.value = Math.max(1, parseInt(input.value || 1) + delta);
+      updateTradePanelTotals();
+    }
+
+    function updateTradePanelTotals() {
+      const buyQ = parseInt(document.getElementById('buyQty').value || 0);
+      const sellQ = parseInt(document.getElementById('sellQty').value || 0);
+      document.getElementById('buyCost').textContent = `Total: $${(buyQ * currentPrice).toFixed(2)}`;
+      document.getElementById('sellValue').textContent = `Value: $${(sellQ * currentPrice).toFixed(2)}`;
+    }
+
+    function buyAll() {
+      const maxShares = Math.floor(cash / currentPrice);
+      document.getElementById('buyQty').value = maxShares;
+      updateTradePanelTotals();
+    }
+
+    function sellAll() {
+      document.getElementById('sellQty').value = shares;
+      updateTradePanelTotals();
+    }
+
+    async function trade(type) {
+      if (!currentPrice || currentPrice === 0) { toast('Prices not available yet', 'error'); return; }
+
+      const qty = parseInt(document.getElementById(type === 'buy' ? 'buyQty' : 'sellQty').value || 0);
+      if (!qty || qty <= 0) { toast('Enter a valid quantity', 'error'); return; }
+
+      if (type === 'buy') {
+        const cost = qty * currentPrice;
+        if (cost > cash) { toast(`Not enough cash! Need $${cost.toFixed(2)}, have $${cash.toFixed(2)}`, 'error'); return; }
+        cash -= cost;
+        shares += qty;
+        toast(`Bought ${qty} share${qty > 1 ? 's' : ''} @ $${currentPrice.toFixed(2)}`, 'success');
+      } else {
+        if (qty > shares) { toast(`You only have ${shares} shares`, 'error'); return; }
+        cash += qty * currentPrice;
+        shares -= qty;
+        toast(`Sold ${qty} share${qty > 1 ? 's' : ''} @ $${currentPrice.toFixed(2)}`, 'success');
+      }
+
+      const totalMoney = cash + shares * currentPrice;
+      await db.ref(`sessions/${sessionId}/players/${playerId}`).update({
+        money: totalMoney,
+        shares,
+        cash
+      });
+
+      updateTotals();
+      updateTradePanelTotals();
+    }
+
+    function updateTotals() {
+      const total = cash + shares * currentPrice;
+      document.getElementById('totalPortfolio').textContent = `$${Math.round(total).toLocaleString()}`;
+      document.getElementById('cashInfo').textContent = `Cash: $${Math.round(cash).toLocaleString()}`;
+      document.getElementById('sharesInfo').textContent = `${shares} share${shares !== 1 ? 's' : ''} held`;
+    }
+
+    function updateLeaderboard(players) {
+      const sorted = Object.values(players).sort((a, b) => b.money - a.money);
+      const el = document.getElementById('leaderboard');
+      if (!el) return;
+      el.innerHTML = '';
+
+      sorted.forEach((p, i) => {
+        const isMe = p.name === playerName;
+        const row = document.createElement('div');
+        row.className = 'leaderboard-row';
+        if (isMe) row.style.background = 'rgba(108,99,255,0.1)';
+        const gain = sessionSnapshot ? ((p.money - sessionSnapshot.startMoney) / sessionSnapshot.startMoney * 100).toFixed(1) : '0.0';
+        row.innerHTML = `
+          <div class="rank rank-${i + 1}">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}</div>
+          <div class="player-name">${p.name}${isMe ? ' <span style="color:var(--accent);font-size:11px;">(you)</span>' : ''}</div>
+          <div class="player-money" style="color:${p.money >= (sessionSnapshot?.startMoney || 0) ? 'var(--green)' : 'var(--red)'}">$${Math.round(p.money).toLocaleString()}</div>
+        `;
+        el.appendChild(row);
+      });
+    }
+
+    // ========================
+    // END
+    // ========================
+    async function showEndPage(session) {
+      // Liquidate any shares
+      if (shares > 0) {
+        cash += shares * currentPrice;
+        shares = 0;
+        await db.ref(`sessions/${sessionId}/players/${playerId}`).update({ money: cash, shares: 0, cash });
+      }
+
+      showPage('pageEnded');
+
+      document.getElementById('finalReveal').textContent = `The stock was: ${session.ticker} — ${session.stockName}`;
+      document.getElementById('finalStart').textContent = `$${session.startMoney.toLocaleString()}`;
+      document.getElementById('finalPortfolio').textContent = `$${Math.round(cash).toLocaleString()}`;
+
+      const ret = ((cash - session.startMoney) / session.startMoney * 100).toFixed(1);
+      const retEl = document.getElementById('finalReturn');
+      retEl.textContent = `${ret >= 0 ? '+' : ''}${ret}%`;
+      retEl.style.color = ret >= 0 ? 'var(--green)' : 'var(--red)';
+
+      if (ret >= 20) document.getElementById('finalEmoji').textContent = '🚀';
+      else if (ret >= 0) document.getElementById('finalEmoji').textContent = '📈';
+      else if (ret >= -20) document.getElementById('finalEmoji').textContent = '📉';
+      else document.getElementById('finalEmoji').textContent = '💸';
+
+      document.getElementById('finalMessage').textContent = ret >= 0 ? 'Nice work!' : 'Better luck next time!';
+
+      const snap = await db.ref(`sessions/${sessionId}/players`).once('value');
+      const players = snap.val() || {};
+      const sorted = Object.values(players).sort((a, b) => b.money - a.money);
+      const finalLb = document.getElementById('finalLeaderboard');
+      finalLb.innerHTML = '';
+      sorted.forEach((p, i) => {
+        const isMe = p.name === playerName;
+        const row = document.createElement('div');
+        row.className = 'leaderboard-row';
+        if (isMe) row.style.background = 'rgba(108,99,255,0.1)';
+        row.innerHTML = `
+          <div class="rank rank-${i + 1}">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}</div>
+          <div class="player-name">${p.name}${isMe ? ' <span style="color:var(--accent);font-size:11px;">(you)</span>' : ''}</div>
+          <div class="player-money">$${Math.round(p.money).toLocaleString()}</div>
+        `;
+        finalLb.appendChild(row);
+      });
+    }
+
+    // ========================
+    // UTILS
+    // ========================
+    function showPage(id) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function buildChartConfig(labels, data, live) {
+      const isUp = data.length > 1 && data[data.length - 1] >= data[0];
+      const color = live ? (isUp ? '#00d4aa' : '#ff6b6b') : '#6c63ff';
+
+      return {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data,
+            borderColor: color,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            fill: true,
+            tension: 0.4,
+            backgroundColor: (ctx) => {
+              const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, ctx.chart.height);
+              gradient.addColorStop(0, color + '30');
+              gradient.addColorStop(1, color + '00');
+              return gradient;
+            }
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: { label: ctx => `$${ctx.raw.toFixed(2)}` }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#6b6b8a', font: { family: 'DM Mono', size: 10 }, maxTicksLimit: 8 },
+              grid: { color: '#2a2a3d' }
+            },
+            y: {
+              ticks: { color: '#6b6b8a', font: { family: 'DM Mono', size: 10 }, callback: v => `$${v.toFixed(0)}` },
+              grid: { color: '#2a2a3d' }
+            }
+          }
+        }
+      };
+    }
+
+    function toast(msg, type = 'info') {
+      const el = document.createElement('div');
+      el.className = `toast toast-${type}`;
+      el.textContent = msg;
+      document.getElementById('toasts').appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+
+    // Update trade totals when qty inputs change
+    document.addEventListener('DOMContentLoaded', () => {
+      ['buyQty', 'sellQty'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', updateTradePanelTotals);
+      });
+    });
+  </script>
+</body>
+</html>
